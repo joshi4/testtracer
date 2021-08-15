@@ -1,6 +1,7 @@
 package testtracer
 
 import (
+	"io"
 	"log"
 	"sync"
 
@@ -9,17 +10,28 @@ import (
 	jaegercfg "github.com/uber/jaeger-client-go/config"
 )
 
+var closeFn io.Closer
+
 func init() {
 	var once sync.Once
 	once.Do(func() {
 		cfg := setupJaeger()
-		tracer, _, err := cfg.NewTracer()
+		tracer, closer, err := cfg.NewTracer()
 		if err != nil {
 			log.Printf("Could not initialize jaeger tracer: %s", err.Error())
 			return
 		}
+		closeFn = closer
 		opentracing.SetGlobalTracer(tracer)
 	})
+}
+
+func Close() error {
+	println("calling close")
+	if closeFn != nil {
+		return closeFn.Close()
+	}
+	return nil
 }
 
 func setupJaeger() *jaegercfg.Configuration {
